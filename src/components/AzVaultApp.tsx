@@ -91,7 +91,10 @@ export default function AzVaultApp() {
 
   // Inicializar Firebase Auth y Analytics
   useEffect(() => {
-    if (typeof window === "undefined" || !auth.onAuthStateChanged) return;
+    if (typeof window === "undefined" || !auth || typeof auth.onAuthStateChanged !== "function") {
+      setAuthLoading(false);
+      return;
+    }
     initAnalytics();
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -179,6 +182,12 @@ export default function AzVaultApp() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
+
+    if (!auth || typeof auth.onAuthStateChanged !== "function") {
+      setLoginError("Configuración incompleta: Por favor agrega tu NEXT_PUBLIC_FIREBASE_API_KEY en el archivo .env.local para habilitar la autenticación de Firebase.");
+      return;
+    }
+
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
     } catch (err: unknown) {

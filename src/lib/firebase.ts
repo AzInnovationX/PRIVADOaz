@@ -15,17 +15,19 @@ const firebaseConfig = {
 
 const isBrowser = typeof window !== "undefined";
 
-// Inicializar la App de Firebase únicamente con configuración presente
-const app = !getApps().length
-  ? initializeApp(firebaseConfig)
-  : getApp();
+// Inicializar Firebase únicamente si se proporciona una API Key válida en las variables de entorno
+const hasApiKey = Boolean(process.env.NEXT_PUBLIC_FIREBASE_API_KEY && process.env.NEXT_PUBLIC_FIREBASE_API_KEY.trim() !== "");
 
-export const auth = isBrowser ? getAuth(app) : ({} as ReturnType<typeof getAuth>);
-export const db = isBrowser ? getFirestore(app) : ({} as ReturnType<typeof getFirestore>);
+const app = isBrowser && hasApiKey
+  ? (!getApps().length ? initializeApp(firebaseConfig) : getApp())
+  : null;
+
+export const auth = (isBrowser && app ? getAuth(app) : {}) as ReturnType<typeof getAuth>;
+export const db = (isBrowser && app ? getFirestore(app) : {}) as ReturnType<typeof getFirestore>;
 
 // Analytics opcional y libre de datos sensibles
 export const initAnalytics = async () => {
-  if (isBrowser && firebaseConfig.apiKey) {
+  if (isBrowser && app && hasApiKey) {
     const supported = await isSupported();
     if (supported) {
       return getAnalytics(app);
