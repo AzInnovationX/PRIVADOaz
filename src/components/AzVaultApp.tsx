@@ -178,7 +178,7 @@ export default function AzVaultApp() {
     decryptAll();
   }, [encryptedRecords, user]);
 
-  // Manejar Login de Firebase Authentication con mensajes formateados profesionalmente
+  // Manejar Login de Firebase Authentication con advertencias intimidantes para intrusos
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
@@ -186,26 +186,26 @@ export default function AzVaultApp() {
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
     } catch (err: unknown) {
-      let message = "No se pudo iniciar sesión. Verifica tu correo y contraseña.";
+      let message = "⚠️ ACCESO RECHAZADO: Credenciales inválidas. Tu dirección IP ha sido registrada y notificada a los sistemas de seguridad del servidor.";
       if (err && typeof err === "object" && "code" in err) {
         const code = (err as { code: string }).code;
         switch (code) {
           case "auth/invalid-credential":
           case "auth/wrong-password":
           case "auth/user-not-found":
-            message = "Correo electrónico o contraseña incorrectos. Por favor, verifica tus datos e intenta nuevamente.";
+            message = "🛑 INTRUSIÓN DETECTADA: Correo o clave incorrectos. Si continúas intentando adivinar, tu acceso a esta red será inhabilitado permanentemente.";
             break;
           case "auth/too-many-requests":
-            message = "Demasiados intentos fallidos consecutivos. Por seguridad, la cuenta se ha bloqueado temporalmente. Intenta más tarde.";
+            message = "🚨 ALERTA DE SEGURIDAD: Demasiados intentos fallidos. Tu conexión ha sido bloqueada temporalmente por sospecha de ataque de fuerza bruta.";
             break;
           case "auth/invalid-email":
-            message = "El formato del correo electrónico no es válido.";
+            message = "⚠️ FORMATO NO VÁLIDO: El formato de usuario es incorrecto. Este incidente ha sido grabado en el registro de auditoría.";
             break;
           case "auth/network-request-failed":
-            message = "Error de conexión a internet. Comprueba tu red y vuelve a intentarlo.";
+            message = "📡 ERROR DE CONEXIÓN: Fallo de red al intentar validar las credenciales cibernéticas.";
             break;
           default:
-            message = "Error al autenticar. Verifica que la cuenta exista en Firebase Authentication.";
+            message = "⛔ FALLO DE AUTENTICACIÓN: Acceso denegado por el protocolo de seguridad AZ VAULT.";
         }
       }
       setLoginError(message);
