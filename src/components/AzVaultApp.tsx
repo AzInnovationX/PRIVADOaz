@@ -19,8 +19,6 @@ import {
   serverTimestamp
 } from "firebase/firestore";
 import { encryptData, decryptData } from "@/lib/crypto";
-import ImportDocxModal from "@/components/ImportDocxModal";
-import { ParsedVaultEntry } from "@/lib/docxParser";
 import {
   Shield,
   Key,
@@ -33,7 +31,6 @@ import {
   Eye,
   EyeOff,
   LogOut,
-  Upload,
   Search,
   CheckCircle2,
   AlertCircle,
@@ -85,8 +82,8 @@ export default function AzVaultApp() {
   const [formUrl, setFormUrl] = useState<string>("");
   const [formNotes, setFormNotes] = useState<string>("");
 
-  // Modal de Importación DOCX
-  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+  // State del modal de importación removido por limpieza de interfaz
+
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -261,29 +258,7 @@ export default function AzVaultApp() {
     }
   };
 
-  // Importar desde DOCX (Usa user.uid transparente)
-  const handleBatchImport = async (entries: ParsedVaultEntry[]) => {
-    if (!user) return;
-    const vaultRef = collection(db, "users", user.uid, "vault");
 
-    for (const entry of entries) {
-      const payload = JSON.stringify({
-        title: entry.title || "Registro Importado",
-        username: entry.username || "",
-        password: entry.password || "",
-        url: entry.url || "",
-        notes: entry.notes || ""
-      });
-
-      const encrypted = await encryptData(payload, user.uid);
-      await addDoc(vaultRef, {
-        ciphertext: encrypted.ciphertext,
-        salt: encrypted.salt,
-        iv: encrypted.iv,
-        createdAt: serverTimestamp()
-      });
-    }
-  };
 
   const resetForm = () => {
     setFormTitle("");
@@ -565,30 +540,33 @@ export default function AzVaultApp() {
     );
   }
 
-  // 2. VISTA PRINCIPAL DIRECTA TRAS AUTENTICACIÓN
+  // 2. VISTA PRINCIPAL DIRECTA TRAS AUTENTICACIÓN (PANEL MODERNO CYBER GLASS)
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      {/* Header */}
-      <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-30">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+      {/* Header Superior Moderno */}
+      <header className="bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md sticky top-0 z-30 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-cyan-950 border border-cyan-800 rounded-lg">
-              <Shield className="w-5 h-5 text-cyan-400" />
+            <div className="p-2.5 bg-slate-950 border border-cyan-500/40 rounded-xl shadow-md shadow-cyan-950/50">
+              <Shield className="w-5 h-5 text-cyan-400 animate-pulse" />
             </div>
             <div>
-              <h1 className="text-lg font-black tracking-wide text-white">AZ VAULT</h1>
-              <p className="text-[10px] text-emerald-400 flex items-center space-x-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>Bóveda Cifrada Activa</span>
+              <h1 className="text-lg font-black tracking-widest text-white font-mono">AZ VAULT</h1>
+              <p className="text-[10px] text-emerald-400 font-mono flex items-center space-x-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="uppercase tracking-wider">Cifrado AES-256 Activo</span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
-            <span className="text-xs text-slate-400 hidden sm:inline">{user.email}</span>
+          <div className="flex items-center space-x-4">
+            <div className="hidden md:flex items-center space-x-2 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-800/80 font-mono text-xs text-slate-300">
+              <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+              <span>{user.email}</span>
+            </div>
             <button
               onClick={handleLogout}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 text-xs px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-1 transition-colors"
+              className="bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-rose-100 text-xs font-mono font-semibold px-3.5 py-2 rounded-xl border border-rose-800/60 flex items-center space-x-1.5 transition-all shadow-md active:scale-95"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Cerrar Sesión</span>
@@ -598,73 +576,77 @@ export default function AzVaultApp() {
       </header>
 
       {/* Contenido Principal */}
-      <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
-        {/* Barra de Acciones y Búsqueda */}
-        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8 space-y-6">
+        
+        {/* Banner Superior & Barra de Acciones */}
+        <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 bg-slate-900/60 border border-slate-800/80 p-5 rounded-2xl backdrop-blur-md shadow-xl">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
             <input
               type="text"
-              placeholder="Buscar credenciales por título, usuario o sitio..."
+              placeholder="Buscar credencial por servicio, usuario o sitio web..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 transition-colors"
+              className="w-full bg-slate-950/90 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm font-mono text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors shadow-inner"
             />
           </div>
 
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              className="bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-semibold px-4 py-2 rounded-lg border border-slate-700 flex items-center space-x-2 transition-colors"
-            >
-              <Upload className="w-4 h-4 text-cyan-400" />
-              <span>Importar Word (DOCX)</span>
-            </button>
+          <div className="flex items-center justify-between md:justify-end space-x-3">
+            <span className="text-xs font-mono text-slate-400 px-2">
+              Registros: <strong className="text-cyan-400">{filteredRecords.length}</strong>
+            </span>
             <button
               onClick={() => {
                 resetForm();
                 setIsFormOpen(true);
               }}
-              className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors shadow-lg shadow-cyan-950/50"
+              className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-mono font-bold px-5 py-2.5 rounded-xl flex items-center space-x-2 transition-all shadow-lg shadow-cyan-950/60 active:scale-95"
             >
               <Plus className="w-4 h-4" />
-              <span>Nuevo Registro</span>
+              <span>Agregar Contraseña</span>
             </button>
           </div>
         </div>
 
         {decryptionError && (
-          <div className="bg-rose-950/60 border border-rose-800 text-rose-300 text-xs p-4 rounded-xl flex items-center space-x-2">
-            <AlertCircle className="w-5 h-5 shrink-0" />
+          <div className="bg-rose-950/70 border border-rose-700 text-rose-200 text-xs p-4 rounded-2xl flex items-center space-x-2 font-mono">
+            <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
             <span>{decryptionError}</span>
           </div>
         )}
 
-        {/* Lista de Registros */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Tarjetas de Registros Cifrados (Cyber Glass Grid) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredRecords.map((rec) => {
             const isPasswordVisible = visiblePasswords[rec.id];
-            const isCopied = copiedId === rec.id;
+            const isCopiedPass = copiedId === rec.id;
+            const isCopiedUser = copiedId === `${rec.id}-user`;
 
             return (
               <div
                 key={rec.id}
-                className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-4 flex flex-col justify-between transition-all space-y-3"
+                className="group relative bg-slate-900/70 border border-slate-800/80 hover:border-cyan-500/50 rounded-2xl p-5 flex flex-col justify-between transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-cyan-950/30 backdrop-blur-sm space-y-4"
               >
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between">
-                    <h3 className="font-bold text-white text-base truncate">{rec.title}</h3>
-                    <div className="flex items-center space-x-1">
+                <div className="space-y-3">
+                  {/* Título y Botones de Acción */}
+                  <div className="flex items-start justify-between border-b border-slate-800/80 pb-3">
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                      <div className="p-2 bg-slate-950 rounded-lg border border-slate-800 group-hover:border-cyan-500/40 transition-colors">
+                        <Key className="w-4 h-4 text-cyan-400" />
+                      </div>
+                      <h3 className="font-bold text-white text-base font-mono truncate">{rec.title}</h3>
+                    </div>
+                    <div className="flex items-center space-x-1 shrink-0">
                       <button
                         onClick={() => handleEditClick(rec)}
-                        className="text-slate-400 hover:text-cyan-400 p-1"
+                        className="text-slate-400 hover:text-cyan-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
                         title="Editar registro"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDeleteRecord(rec.id)}
-                        className="text-slate-400 hover:text-rose-400 p-1"
+                        className="text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
                         title="Eliminar registro"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -672,54 +654,68 @@ export default function AzVaultApp() {
                     </div>
                   </div>
 
+                  {/* Campo de Usuario con Botón de Copiado */}
                   {rec.username && (
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-500">Usuario / Email</span>
-                      <p className="text-xs text-slate-300 font-mono select-all truncate">{rec.username}</p>
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Usuario / Email</span>
+                      <div className="flex items-center justify-between bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-1.5">
+                        <span className="text-xs font-mono text-slate-200 truncate select-all">{rec.username}</span>
+                        <button
+                          onClick={() => copyToClipboard(rec.username, `${rec.id}-user`)}
+                          className="text-slate-400 hover:text-cyan-400 p-1 ml-2 shrink-0 transition-colors"
+                          title="Copiar usuario"
+                        >
+                          {isCopiedUser ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
                     </div>
                   )}
 
+                  {/* Campo de Contraseña con Ojo y Copiado Rápido */}
                   {rec.password && (
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-500">Contraseña</span>
-                      <div className="flex items-center justify-between bg-slate-950 border border-slate-800 rounded px-2 py-1 mt-0.5">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Contraseña</span>
+                      <div className="flex items-center justify-between bg-slate-950/90 border border-slate-800 rounded-xl px-3 py-1.5">
                         <span className="text-xs font-mono text-cyan-300 truncate">
-                          {isPasswordVisible ? rec.password : "••••••••••••"}
+                          {isPasswordVisible ? rec.password : "••••••••••••••••"}
                         </span>
-                        <div className="flex items-center space-x-1 ml-2">
+                        <div className="flex items-center space-x-1.5 ml-2 shrink-0">
                           <button
                             onClick={() => togglePasswordVisibility(rec.id)}
-                            className="text-slate-400 hover:text-slate-200 p-1"
+                            className="text-slate-400 hover:text-slate-200 p-1 transition-colors"
+                            title={isPasswordVisible ? "Ocultar contraseña" : "Mostrar contraseña"}
                           >
                             {isPasswordVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                           </button>
                           <button
                             onClick={() => copyToClipboard(rec.password, rec.id)}
-                            className="text-slate-400 hover:text-cyan-400 p-1"
+                            className="text-slate-400 hover:text-cyan-400 p-1 transition-colors"
                             title="Copiar contraseña"
                           >
-                            {isCopied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                            {isCopiedPass ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                           </button>
                         </div>
                       </div>
                     </div>
                   )}
 
+                  {/* URL / Sitio Web */}
                   {rec.url && (
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-500">Sitio Web</span>
-                      <p className="text-xs text-slate-400 truncate">
-                        <a href={rec.url.startsWith("http") ? rec.url : `https://${rec.url}`} target="_blank" rel="noreferrer" className="hover:underline text-cyan-400">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Sitio Web</span>
+                      <p className="text-xs font-mono text-cyan-400 truncate">
+                        <a href={rec.url.startsWith("http") ? rec.url : `https://${rec.url}`} target="_blank" rel="noreferrer" className="hover:underline">
                           {rec.url}
                         </a>
                       </p>
                     </div>
                   )}
 
+                  {/* Notas Adicionales */}
                   {rec.notes && (
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-500">Notas</span>
-                      <p className="text-xs text-slate-400 whitespace-pre-wrap bg-slate-950/40 p-2 rounded border border-slate-800/60 mt-0.5">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-mono uppercase font-bold text-slate-400">Notas / Tokens</span>
+                      <p className="text-xs font-mono text-slate-400 whitespace-pre-wrap bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
                         {rec.notes}
                       </p>
                     </div>
@@ -731,11 +727,13 @@ export default function AzVaultApp() {
         </div>
 
         {filteredRecords.length === 0 && (
-          <div className="text-center py-16 bg-slate-900/40 rounded-xl border border-slate-800/60">
-            <Key className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <p className="text-slate-300 font-semibold text-sm">No hay registros en la bóveda</p>
-            <p className="text-slate-500 text-xs mt-1">
-              Agrega una nueva contraseña o importa un archivo DOCX para comenzar.
+          <div className="text-center py-20 bg-slate-900/40 rounded-2xl border border-slate-800/60 space-y-3">
+            <div className="inline-flex p-4 bg-slate-950 border border-slate-800 rounded-2xl">
+              <Key className="w-10 h-10 text-slate-600" />
+            </div>
+            <p className="text-slate-200 font-mono font-bold text-sm">No hay contraseñas en tu bóveda</p>
+            <p className="text-slate-500 font-mono text-xs max-w-sm mx-auto">
+              Haz clic en <strong>"Agregar Contraseña"</strong> para guardar y cifrar tus credenciales de forma segura.
             </p>
           </div>
         )}
@@ -743,69 +741,69 @@ export default function AzVaultApp() {
 
       {/* Modal / Formulario para Agregar o Editar Registro */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 text-slate-100 shadow-2xl">
-            <div className="flex justify-between items-center pb-3 mb-4 border-b border-slate-800">
-              <h3 className="font-bold text-base text-white">
-                {editingId ? "Editar Registro" : "Nuevo Registro de Bóveda"}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 text-slate-100 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+              <h3 className="font-bold font-mono text-base text-white">
+                {editingId ? "Editar Credencial" : "Nueva Credencial Cifrada"}
               </h3>
-              <button onClick={() => setIsFormOpen(false)} className="text-slate-400 hover:text-white">✕</button>
+              <button onClick={() => setIsFormOpen(false)} className="text-slate-400 hover:text-white text-lg">✕</button>
             </div>
 
-            <form onSubmit={handleSaveRecord} className="space-y-3">
+            <form onSubmit={handleSaveRecord} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Título / Servicio *</label>
+                <label className="block text-xs font-bold font-mono uppercase text-slate-400 mb-1">Título / Servicio *</label>
                 <input
                   type="text"
                   required
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
-                  placeholder="ej. Correo Corporativo, Banco..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
+                  placeholder="ej. Banco, Facebook, GitHub..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Usuario / Email</label>
+                <label className="block text-xs font-bold font-mono uppercase text-slate-400 mb-1">Usuario / Email</label>
                 <input
                   type="text"
                   value={formUsername}
                   onChange={(e) => setFormUsername(e.target.value)}
                   placeholder="ej. usuario@dominio.com"
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Contraseña</label>
+                <label className="block text-xs font-bold font-mono uppercase text-slate-400 mb-1">Contraseña</label>
                 <input
                   type="text"
                   value={formPassword}
                   onChange={(e) => setFormPassword(e.target.value)}
                   placeholder="Contraseña del servicio"
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-slate-100 font-mono focus:outline-none focus:border-cyan-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-1">URL Sitio Web</label>
+                <label className="block text-xs font-bold font-mono uppercase text-slate-400 mb-1">URL / Sitio Web</label>
                 <input
                   type="text"
                   value={formUrl}
                   onChange={(e) => setFormUrl(e.target.value)}
                   placeholder="https://ejemplo.com"
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-400 mb-1">Notas Adicionales</label>
+                <label className="block text-xs font-bold font-mono uppercase text-slate-400 mb-1">Notas / Claves Adicionales</label>
                 <textarea
                   rows={3}
                   value={formNotes}
                   onChange={(e) => setFormNotes(e.target.value)}
-                  placeholder="Preguntas de seguridad, tokens, etc."
-                  className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 resize-none"
+                  placeholder="Preguntas de seguridad, tokens, NIPs..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-cyan-500 resize-none"
                 />
               </div>
 
@@ -813,13 +811,13 @@ export default function AzVaultApp() {
                 <button
                   type="button"
                   onClick={() => setIsFormOpen(false)}
-                  className="px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-semibold"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold"
+                  className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-mono font-bold"
                 >
                   Guardar Cifrado
                 </button>
@@ -828,13 +826,6 @@ export default function AzVaultApp() {
           </div>
         </div>
       )}
-
-      {/* Modal de Importación DOCX */}
-      <ImportDocxModal
-        isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
-        onConfirmImport={handleBatchImport}
-      />
     </div>
   );
 }
