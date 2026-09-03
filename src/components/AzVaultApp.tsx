@@ -177,7 +177,7 @@ export default function AzVaultApp() {
     decryptAll();
   }, [encryptedRecords, user]);
 
-  // Manejar Login de Firebase Authentication
+  // Manejar Login de Firebase Authentication con mensajes formateados profesionalmente
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
@@ -185,8 +185,29 @@ export default function AzVaultApp() {
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "Credenciales inválidas";
-      setLoginError("Error al autenticar: " + errorMsg);
+      let message = "No se pudo iniciar sesión. Verifica tu correo y contraseña.";
+      if (err && typeof err === "object" && "code" in err) {
+        const code = (err as { code: string }).code;
+        switch (code) {
+          case "auth/invalid-credential":
+          case "auth/wrong-password":
+          case "auth/user-not-found":
+            message = "Correo electrónico o contraseña incorrectos. Por favor, verifica tus datos e intenta nuevamente.";
+            break;
+          case "auth/too-many-requests":
+            message = "Demasiados intentos fallidos consecutivos. Por seguridad, la cuenta se ha bloqueado temporalmente. Intenta más tarde.";
+            break;
+          case "auth/invalid-email":
+            message = "El formato del correo electrónico no es válido.";
+            break;
+          case "auth/network-request-failed":
+            message = "Error de conexión a internet. Comprueba tu red y vuelve a intentarlo.";
+            break;
+          default:
+            message = "Error al autenticar. Verifica que la cuenta exista en Firebase Authentication.";
+        }
+      }
+      setLoginError(message);
     }
   };
 
