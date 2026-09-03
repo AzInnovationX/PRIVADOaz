@@ -357,7 +357,7 @@ export default function AzVaultApp() {
     setSystemKeyError(null);
 
     // Validar clave maestra del sistema (Si no hay configurada en env, usar clave por defecto segura)
-    const validKey = process.env.NEXT_PUBLIC_SYSTEM_MASTER_KEY || "AZVAULT-SECURE-2026";
+    const validKey = process.env.NEXT_PUBLIC_SYSTEM_MASTER_KEY || "1925H7i9D9h71";
 
     if (systemMasterKey.trim() === validKey.trim()) {
       setIsMasterKeyVerified(true);
