@@ -36,7 +36,8 @@ import {
   Upload,
   Search,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  ShieldAlert
 } from "lucide-react";
 
 interface EncryptedVaultRecord {
@@ -357,37 +358,70 @@ export default function AzVaultApp() {
     );
   }
 
-  // 1. VISTA DE INICIO DE SESIÓN (FIREBASE AUTHENTICATION)
+  // 1. VISTA DE INICIO DE SESIÓN (FIREBASE AUTHENTICATION CON DISEÑO HACKER / CYBER VAULT)
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-12">
-        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6">
-          <div className="text-center space-y-2">
-            <div className="inline-flex p-3 bg-cyan-950/80 border border-cyan-800 rounded-2xl mb-2">
-              <Shield className="w-10 h-10 text-cyan-400" />
+      <div className="relative min-h-screen flex flex-col justify-center items-center px-4 py-12 bg-slate-950 overflow-hidden">
+        {/* Imagen de fondo con overlay oscuro profesional */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-25 scale-105 transition-transform duration-1000"
+          style={{ backgroundImage: "url('/login-bg.jpg')" }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/80 to-slate-950/95" />
+        
+        {/* Efecto de resplandor cian/rojo cibernético */}
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-rose-600/10 rounded-full blur-3xl" />
+
+        <div className="relative z-10 w-full max-w-md bg-slate-900/90 border border-cyan-500/30 rounded-2xl p-8 shadow-2xl backdrop-blur-md space-y-6">
+          
+          {/* Encabezado e Icono */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex p-3.5 bg-slate-950/80 border border-cyan-500/50 rounded-2xl shadow-lg shadow-cyan-950/60 mb-1">
+              <Shield className="w-10 h-10 text-cyan-400 animate-pulse" />
             </div>
-            <h1 className="text-2xl font-black text-white tracking-wide">AZ VAULT</h1>
-            <p className="text-xs text-slate-400">Bóveda Cifrada de Contraseñas y Credenciales</p>
+            <div>
+              <h1 className="text-2xl font-black text-white tracking-widest font-mono">AZ VAULT</h1>
+              <p className="text-[11px] font-mono text-cyan-400 uppercase tracking-wider mt-1">
+                SYSTEM // ENCRYPTED ACCESS ONLY
+              </p>
+            </div>
           </div>
 
+          {/* MENSAJE TIPO HACKER / ADVERTENCIA INTIMIDANTE */}
+          <div className="bg-rose-950/40 border border-rose-600/50 rounded-xl p-3.5 space-y-1 text-left shadow-inner">
+            <div className="flex items-center space-x-2 text-rose-400 text-xs font-bold font-mono uppercase tracking-wider">
+              <ShieldAlert className="w-4 h-4 shrink-0 animate-bounce" />
+              <span>[!] ADVERTENCIA DEL SISTEMA — ACCESO RESTRINGIDO</span>
+            </div>
+            <p className="text-[11px] text-slate-300 font-mono leading-relaxed pl-6">
+              Área de alta seguridad monitoreada activamente <strong className="text-rose-400">24/7</strong>. 
+              Todo intento de ingreso no autorizado, fuerza bruta o intrusión será registrado y rastreado. 
+              <span className="block mt-1 font-semibold text-rose-300">
+                Si no eres un usuario autorizado o eres un simple curioso, retírate de inmediato.
+              </span>
+            </p>
+          </div>
+
+          {/* Formulario de Login */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold uppercase text-slate-400 mb-1">
-                Correo Electrónico (Firebase Auth)
+              <label className="block text-xs font-bold font-mono uppercase text-slate-300 mb-1">
+                Identificador / Correo de Acceso
               </label>
               <input
                 type="email"
                 required
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="demo@example.com"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 transition-colors"
+                placeholder="usuario@dominio.com"
+                className="w-full bg-slate-950/90 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 font-mono focus:outline-none focus:border-cyan-500 transition-colors shadow-inner"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase text-slate-400 mb-1">
-                Contraseña de Autenticación
+              <label className="block text-xs font-bold font-mono uppercase text-slate-300 mb-1">
+                Clave de Seguridad
               </label>
               <input
                 type="password"
@@ -395,28 +429,28 @@ export default function AzVaultApp() {
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
                 placeholder="••••••••••••"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-cyan-500 transition-colors"
+                className="w-full bg-slate-950/90 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder-slate-600 font-mono focus:outline-none focus:border-cyan-500 transition-colors shadow-inner"
               />
             </div>
 
             {loginError && (
-              <div className="bg-rose-950/50 border border-rose-800 text-rose-300 text-xs p-3 rounded-lg flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
+              <div className="bg-rose-950/70 border border-rose-700 text-rose-200 text-xs p-3 rounded-lg flex items-center space-x-2 font-mono">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
                 <span>{loginError}</span>
               </div>
             )}
 
             <button
               type="submit"
-              className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors shadow-lg shadow-cyan-950/50"
+              className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-mono font-bold py-3 rounded-lg text-sm tracking-wider uppercase transition-all shadow-lg shadow-cyan-950/60 active:scale-[0.99]"
             >
-              Iniciar Sesión
+              Autenticar y Entrar
             </button>
           </form>
 
-          <div className="pt-4 border-t border-slate-800 text-center">
-            <p className="text-[11px] text-slate-500">
-              Uso administrativo exclusivo. Acceso protegido mediante Firebase Authentication.
+          <div className="pt-3 border-t border-slate-800/80 text-center">
+            <p className="text-[10px] text-slate-500 font-mono">
+              IP TRACE & FIREWALL ACTIVE // AZ VAULT PROTOCOL
             </p>
           </div>
         </div>
