@@ -22,24 +22,28 @@ export async function parseDocxFile(file: File): Promise<ParsedVaultEntry[]> {
   try {
     const result = await mammoth.convertToHtml({ arrayBuffer });
     html = result.value;
-    rawText = result.value.replace(/<[^>]+>/g, " ");
+    // Convertir el HTML a texto conservando saltos de línea para secciones
+    const tempDiv = typeof window !== "undefined" ? document.createElement("div") : null;
+    if (tempDiv) {
+      tempDiv.innerHTML = html.replace(/<\/(p|tr|li|h1|h2|h3|div)>/gi, "\n");
+      rawText = tempDiv.textContent || "";
+    } else {
+      rawText = result.value.replace(/<[^>]+>/g, "\n");
+    }
   } catch (docxErr: unknown) {
-    console.warn("No es un archivo .docx ZIP estándar. Extrayendo texto directamente (Soporte .doc / binario)...", docxErr);
-    // 2. Si falla (ej. es un archivo .doc antiguo de Word 97-2003 o texto binario), extraer el texto visible
+    console.warn("Extrayendo texto directamente (Soporte .doc / binario)...", docxErr);
     const decoder = new TextDecoder("utf-8", { fatal: false });
     rawText = decoder.decode(arrayBuffer);
-    // Limpiar caracteres de control binarios
-    rawText = rawText.replace(/[\x00-\x09\x0B-\x1F\x7F-\x9F]/g, " ");
+    // Limpiar caracteres de control binarios pero conservar saltos de línea
+    rawText = rawText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ");
   }
 
   const entries: ParsedVaultEntry[] = [];
 
-  // Parsear mediante HTML si mammoth funcionó
+  // a. Extraer desde tablas HTML si mammoth funcionó
   if (html) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
-
-    // a. Tablas
     const tables = doc.querySelectorAll("table");
     tables.forEach((table) => {
       const rows = table.querySelectorAll("tr");
@@ -71,60 +75,122 @@ export async function parseDocxFile(file: File): Promise<ParsedVaultEntry[]> {
     });
   }
 
-  // b. Si no se generaron registros por tablas o proviene de un archivo .doc binario/texto
-  if (entries.length === 0 && rawText) {
-    const lines = rawText.split(/\r?\n|\r/).map(l => l.trim()).filter(Boolean);
-    let currentEntry: Partial<ParsedVaultEntry> = {};
+  // b. Algoritmo inteligente por bloques para documentos en formato de texto / viñetas
+  if (rawText) {
+    const lines = rawText
+      .split(/\r?\n/)
+      .map(l => l.replace(/^[•\-\*═\s]+/, "").trim())
+      .filter(l => l.length > 0 && !l.startsWith("═"));
 
-    lines.forEach((line) => {
+    let currentSection = "";
+    let currentTitle = "";
+    let currentUsername = "";
+    let currentPassword = "";
+    let currentUrl = "";
+    const currentNotes: string[] = [];
+
+    const flushCurrent = () => {
+      if (currentTitle || currentUsername || currentPassword) {
+        const finalTitle = currentTitle || currentSection || "Registro Importado";
+        entries.push({
+          title: finalTitle,
+          username: currentUsername,
+          password: currentPassword,
+          url: currentUrl,
+          notes: currentNotes.join(" | ")
+        });
+      }
+      currentTitle = "";
+      currentUsername = "";
+      currentPassword = "";
+      currentUrl = "";
+      currentNotes.length = 0;
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const lower = line.toLowerCase();
-      if (lower.includes("sitio:") || lower.includes("servicio:") || lower.includes("title:") || lower.includes("nombre:")) {
-        if (currentEntry.title || currentEntry.username || currentEntry.password) {
-          if (currentEntry.username || currentEntry.password) {
-            entries.push({
-              title: currentEntry.title || "Registro Importado",
-              username: currentEntry.username || "",
-              password: currentEntry.password || "",
-              url: currentEntry.url || "",
-              notes: currentEntry.notes || ""
-            });
+
+      // Ignorar encabezados estéticos o notas al pie generales
+      if (lower.includes("información de negocio") || lower.includes("documento confidencial") || lower.includes("nota importante")) {
+        continue;
+      }
+
+      // Si es un título de sección en mayúsculas (ej: REDES SOCIALES, GITHUB, BANCA Y FINANZAS)
+      if (line === line.toUpperCase() && line.length > 3 && !line.includes(":") && !line.includes("@")) {
+        currentSection = line;
+        continue;
+      }
+
+      // 1. Detectar líneas con formato directo: "Cuenta STRIPE usuario@gmail.com password123"
+      if (lower.startsWith("cuenta ") || lower.startsWith("correo ")) {
+        flushCurrent();
+        const parts = line.split(/\s+/);
+        currentTitle = parts.slice(0, 2).join(" ");
+        for (let p = 2; p < parts.length; p++) {
+          if (parts[p].includes("@")) {
+            currentUsername = parts[p];
+          } else if (!currentPassword && parts[p].length > 3) {
+            currentPassword = parts[p];
           }
-          currentEntry = {};
         }
-        currentEntry.title = line.substring(line.indexOf(":") + 1).trim();
-      } else if (lower.includes("usuario:") || lower.includes("email:") || lower.includes("user:") || lower.includes("correo:")) {
-        currentEntry.username = line.substring(line.indexOf(":") + 1).trim();
-      } else if (lower.includes("contraseña:") || lower.includes("password:") || lower.includes("pass:") || lower.includes("clave:")) {
-        currentEntry.password = line.substring(line.indexOf(":") + 1).trim();
-      } else if (lower.includes("url:") || lower.includes("link:") || lower.includes("web:")) {
-        currentEntry.url = line.substring(line.indexOf(":") + 1).trim();
-      } else if (line.includes(":") || line.includes("-") || line.includes("\t") || line.includes(",")) {
-        const parts = line.split(/[:,\t-]/).map(s => s.trim()).filter(Boolean);
-        if (parts.length >= 3) {
-          entries.push({
-            title: parts[0],
-            username: parts[1],
-            password: parts[2],
-            url: parts[3] || ""
-          });
+        flushCurrent();
+        continue;
+      }
+
+      // 2. Detectar etiquetas clave: Email:, Contraseña:, Usuario:, Teléfono:, Banca:
+      if (lower.startsWith("email:") || lower.startsWith("correo:") || lower.startsWith("usuario:") || lower.startsWith("user:") || lower.startsWith("banca móvil:") || lower.startsWith("banca:")) {
+        const val = line.substring(line.indexOf(":") + 1).trim();
+        if (!currentUsername) currentUsername = val;
+        else currentNotes.push(line);
+      } else if (lower.startsWith("contraseña:") || lower.startsWith("password:") || lower.startsWith("pass:") || lower.startsWith("clave:") || lower.startsWith("pin:") || lower.startsWith("código:") || lower.startsWith("token:")) {
+        const val = line.substring(line.indexOf(":") + 1).trim();
+        if (!currentPassword) currentPassword = val;
+        else currentNotes.push(line);
+      } else if (lower.startsWith("url:") || lower.startsWith("link:") || lower.startsWith("sitio:") || lower.startsWith("web:")) {
+        currentUrl = line.substring(line.indexOf(":") + 1).trim();
+      } else if (lower.startsWith("teléfono:") || lower.startsWith("número:") || lower.startsWith("firma:") || lower.startsWith("kali mensajes:")) {
+        currentNotes.push(line);
+      } else if (line.includes(":") && !line.includes("http")) {
+        // Línea con formato "Clave: Valor"
+        const parts = line.split(":");
+        const label = parts[0].trim();
+        const value = parts.slice(1).join(":").trim();
+
+        if (label === label.toUpperCase() && label.length > 2) {
+          // Es un título de servicio (ej: GOOGLE ADMOB, PAYPAL, FACEBOOK PRINCIPAL)
+          flushCurrent();
+          currentTitle = label;
+          if (value) currentNotes.push(value);
+        } else {
+          currentNotes.push(line);
+        }
+      } else {
+        // Si es un nombre de servicio solo (ej: GOOGLE ADMOB, BANCOMER, SANTANDER, TIK TOK)
+        if (line === line.toUpperCase() && line.length > 2 && !line.includes("@")) {
+          flushCurrent();
+          currentTitle = line;
+        } else if (line.includes("@")) {
+          // Si contiene un email suelto
+          if (!currentUsername) {
+            currentUsername = line;
+          } else {
+            flushCurrent();
+            currentUsername = line;
+          }
+        } else {
+          // Si es un dato suelto (ej. contraseña suelta o nota)
+          if (!currentPassword && line.length > 3 && !line.includes(" ")) {
+            currentPassword = line;
+          } else {
+            currentNotes.push(line);
+          }
         }
       }
-    });
-
-    if (currentEntry.username || currentEntry.password) {
-      entries.push({
-        title: currentEntry.title || "Registro Importado",
-        username: currentEntry.username || "",
-        password: currentEntry.password || "",
-        url: currentEntry.url || "",
-        notes: currentEntry.notes || ""
-      });
     }
+
+    flushCurrent();
   }
 
   return entries;
-}
-
-function sliceAfterColon(str: string): number {
-  return str.indexOf(":") !== -1 ? 1 : 0;
 }
