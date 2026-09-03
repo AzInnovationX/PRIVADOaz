@@ -15,58 +15,70 @@ export interface ParsedVaultEntry {
  */
 export async function parseDocxFile(file: File): Promise<ParsedVaultEntry[]> {
   const arrayBuffer = await file.arrayBuffer();
-  
-  // Extraer el texto bruto e HTML formateado del documento
-  const result = await mammoth.convertToHtml({ arrayBuffer });
-  const html = result.value;
+  let html = "";
+  let rawText = "";
 
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
+  // 1. Intentar procesar como archivo .docx moderno (ZIP XML) con mammoth
+  try {
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    html = result.value;
+    rawText = result.value.replace(/<[^>]+>/g, " ");
+  } catch (docxErr: unknown) {
+    console.warn("No es un archivo .docx ZIP estándar. Extrayendo texto directamente (Soporte .doc / binario)...", docxErr);
+    // 2. Si falla (ej. es un archivo .doc antiguo de Word 97-2003 o texto binario), extraer el texto visible
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    rawText = decoder.decode(arrayBuffer);
+    // Limpiar caracteres de control binarios
+    rawText = rawText.replace(/[\x00-\x09\x0B-\x1F\x7F-\x9F]/g, " ");
+  }
+
   const entries: ParsedVaultEntry[] = [];
 
-  // 1. Extraer desde tablas si el documento contiene filas de datos
-  const tables = doc.querySelectorAll("table");
-  tables.forEach((table) => {
-    const rows = table.querySelectorAll("tr");
-    rows.forEach((row, rowIndex) => {
-      const cols = Array.from(row.querySelectorAll("td, th")).map(c => c.textContent?.trim() || "");
-      if (cols.length >= 2) {
-        // Evitar la fila de encabezados si dice usuario/contraseña
-        const firstColLower = cols[0].toLowerCase();
-        if (firstColLower.includes("servicio") || firstColLower.includes("sitio") || firstColLower.includes("usuario") || firstColLower.includes("title")) {
-          if (rowIndex === 0) return;
-        }
+  // Parsear mediante HTML si mammoth funcionó
+  if (html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
 
-        if (cols.length >= 3) {
-          entries.push({
-            title: cols[0] || "Registro Importado",
-            username: cols[1] || "",
-            password: cols[2] || "",
-            url: cols[3] || "",
-            notes: cols.slice(4).join(" ") || ""
-          });
-        } else if (cols.length === 2) {
-          entries.push({
-            title: "Registro Importado",
-            username: cols[0] || "",
-            password: cols[1] || ""
-          });
+    // a. Tablas
+    const tables = doc.querySelectorAll("table");
+    tables.forEach((table) => {
+      const rows = table.querySelectorAll("tr");
+      rows.forEach((row, rowIndex) => {
+        const cols = Array.from(row.querySelectorAll("td, th")).map(c => c.textContent?.trim() || "");
+        if (cols.length >= 2) {
+          const firstColLower = cols[0].toLowerCase();
+          if (firstColLower.includes("servicio") || firstColLower.includes("sitio") || firstColLower.includes("usuario") || firstColLower.includes("title")) {
+            if (rowIndex === 0) return;
+          }
+
+          if (cols.length >= 3) {
+            entries.push({
+              title: cols[0] || "Registro Importado",
+              username: cols[1] || "",
+              password: cols[2] || "",
+              url: cols[3] || "",
+              notes: cols.slice(4).join(" ") || ""
+            });
+          } else if (cols.length === 2) {
+            entries.push({
+              title: "Registro Importado",
+              username: cols[0] || "",
+              password: cols[1] || ""
+            });
+          }
         }
-      }
+      });
     });
-  });
+  }
 
-  // 2. Si no se encontraron tablas, parsear líneas de texto por separadores comunes
-  if (entries.length === 0) {
-    const paragraphs = doc.querySelectorAll("p, li");
+  // b. Si no se generaron registros por tablas o proviene de un archivo .doc binario/texto
+  if (entries.length === 0 && rawText) {
+    const lines = rawText.split(/\r?\n|\r/).map(l => l.trim()).filter(Boolean);
     let currentEntry: Partial<ParsedVaultEntry> = {};
 
-    paragraphs.forEach((p) => {
-      const text = p.textContent?.trim();
-      if (!text) return;
-
-      const lower = text.toLowerCase();
-      if (lower.includes("sitio:") || lower.includes("servicio:") || lower.includes("title:")) {
+    lines.forEach((line) => {
+      const lower = line.toLowerCase();
+      if (lower.includes("sitio:") || lower.includes("servicio:") || lower.includes("title:") || lower.includes("nombre:")) {
         if (currentEntry.title || currentEntry.username || currentEntry.password) {
           if (currentEntry.username || currentEntry.password) {
             entries.push({
@@ -79,16 +91,15 @@ export async function parseDocxFile(file: File): Promise<ParsedVaultEntry[]> {
           }
           currentEntry = {};
         }
-        currentEntry.title = text.split(":")[sliceAfterColon(text)].trim();
-      } else if (lower.includes("usuario:") || lower.includes("email:") || lower.includes("user:")) {
-        currentEntry.username = text.substring(text.indexOf(":") + 1).trim();
-      } else if (lower.includes("contraseña:") || lower.includes("password:") || lower.includes("pass:")) {
-        currentEntry.password = text.substring(text.indexOf(":") + 1).trim();
-      } else if (lower.includes("url:") || lower.includes("link:")) {
-        currentEntry.url = text.substring(text.indexOf(":") + 1).trim();
-      } else if (text.includes(":") || text.includes("-") || text.includes(",")) {
-        // Probar si la línea es formato: Titulo, Usuario, Contraseña
-        const parts = text.split(/[:,-]/).map(s => s.trim());
+        currentEntry.title = line.substring(line.indexOf(":") + 1).trim();
+      } else if (lower.includes("usuario:") || lower.includes("email:") || lower.includes("user:") || lower.includes("correo:")) {
+        currentEntry.username = line.substring(line.indexOf(":") + 1).trim();
+      } else if (lower.includes("contraseña:") || lower.includes("password:") || lower.includes("pass:") || lower.includes("clave:")) {
+        currentEntry.password = line.substring(line.indexOf(":") + 1).trim();
+      } else if (lower.includes("url:") || lower.includes("link:") || lower.includes("web:")) {
+        currentEntry.url = line.substring(line.indexOf(":") + 1).trim();
+      } else if (line.includes(":") || line.includes("-") || line.includes("\t") || line.includes(",")) {
+        const parts = line.split(/[:,\t-]/).map(s => s.trim()).filter(Boolean);
         if (parts.length >= 3) {
           entries.push({
             title: parts[0],
