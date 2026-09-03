@@ -1,12 +1,9 @@
 /**
- * Módulo de Cifrado de la Bóveda con Web Crypto API (AES-GCM + PBKDF2).
- * 
- * - Deriva una clave simétrica de 256 bits a partir de la contraseña maestra utilizando PBKDF2 (SHA-256) y 100,000 iteraciones.
- * - Cifra las credenciales usando AES-GCM con un vector de inicialización (IV) aleatorio único de 12 bytes por cada registro.
- * - La contraseña maestra NUNCA se almacena en Firestore ni en disco.
+ * Módulo de Cifrado Transparente con Web Crypto API (AES-GCM + PBKDF2).
+ * Usa el identificador del usuario autenticado (request.auth.uid) como semilla para el cifrado
+ * sin requerir que el usuario ingrese una contraseña maestra manual.
  */
 
-// Utilidades para conversión de ArrayBuffer y Base64
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";
@@ -25,12 +22,11 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-// Derivar clave de cifrado AES-256-GCM usando PBKDF2
-export async function deriveKey(masterPassword: string, salt: Uint8Array): Promise<CryptoKey> {
+export async function deriveKey(userSecret: string, salt: Uint8Array): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   const keyMaterial = await window.crypto.subtle.importKey(
     "raw",
-    encoder.encode(masterPassword),
+    encoder.encode(userSecret),
     "PBKDF2",
     false,
     ["deriveKey"]
@@ -50,16 +46,14 @@ export async function deriveKey(masterPassword: string, salt: Uint8Array): Promi
   );
 }
 
-// Cifrar un objeto o texto usando la clave derivada
-export async function encryptData(data: string, masterPassword: string): Promise<{ ciphertext: string; salt: string; iv: string }> {
+export async function encryptData(data: string, userSecret: string): Promise<{ ciphertext: string; salt: string; iv: string }> {
   const encoder = new TextEncoder();
   const encodedData = encoder.encode(data);
 
-  // Generar Salt e IV criptográficamente seguros
   const salt = window.crypto.getRandomValues(new Uint8Array(16));
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
 
-  const key = await deriveKey(masterPassword, salt);
+  const key = await deriveKey(userSecret, salt);
 
   const encryptedBuffer = await window.crypto.subtle.encrypt(
     {
@@ -77,13 +71,12 @@ export async function encryptData(data: string, masterPassword: string): Promise
   };
 }
 
-// Descifrar el texto original usando la contraseña maestra y los parámetros (salt, iv)
-export async function decryptData(ciphertext: string, saltBase64: string, ivBase64: string, masterPassword: string): Promise<string> {
+export async function decryptData(ciphertext: string, saltBase64: string, ivBase64: string, userSecret: string): Promise<string> {
   const salt = new Uint8Array(base64ToArrayBuffer(saltBase64));
   const iv = new Uint8Array(base64ToArrayBuffer(ivBase64));
   const encryptedBuffer = base64ToArrayBuffer(ciphertext);
 
-  const key = await deriveKey(masterPassword, salt);
+  const key = await deriveKey(userSecret, salt);
 
   const decryptedBuffer = await window.crypto.subtle.decrypt(
     {

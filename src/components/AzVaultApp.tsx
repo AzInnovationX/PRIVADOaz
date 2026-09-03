@@ -138,9 +138,9 @@ export default function AzVaultApp() {
     return () => unsubscribe();
   }, [user]);
 
-  // Re-descifrar registros cuando cambia masterPassword o los registros en Firestore
+  // Re-descifrar registros automáticamente con user.uid al iniciar sesión o cambiar registros
   useEffect(() => {
-    if (!isVaultUnlocked || !masterPassword) {
+    if (!user) {
       setDecryptedRecords([]);
       return;
     }
@@ -152,7 +152,7 @@ export default function AzVaultApp() {
 
         for (const rec of encryptedRecords) {
           try {
-            const rawJson = await decryptData(rec.ciphertext, rec.salt, rec.iv, masterPassword);
+            const rawJson = await decryptData(rec.ciphertext, rec.salt, rec.iv, user.uid);
             const parsed = JSON.parse(rawJson);
             decryptedList.push({
               id: rec.id,
@@ -163,8 +163,7 @@ export default function AzVaultApp() {
               notes: parsed.notes || ""
             });
           } catch {
-            // Si algún registro no descifra, la contraseña maestra podría ser incorrecta
-            setDecryptionError("Contraseña maestra incorrecta o datos corruptos.");
+            setDecryptionError("Error al descifrar los datos de la bóveda.");
             return;
           }
         }
@@ -176,7 +175,7 @@ export default function AzVaultApp() {
     };
 
     decryptAll();
-  }, [encryptedRecords, isVaultUnlocked, masterPassword]);
+  }, [encryptedRecords, user]);
 
   // Manejar Login de Firebase Authentication
   const handleLogin = async (e: React.FormEvent) => {
@@ -195,30 +194,10 @@ export default function AzVaultApp() {
     await signOut(auth);
   };
 
-  // Desbloquear Bóveda con Contraseña Maestra
-  const handleUnlockVault = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!masterPassword) return;
-    setUnlockError(null);
-
-    if (encryptedRecords.length > 0) {
-      try {
-        const testRecord = encryptedRecords[0];
-        await decryptData(testRecord.ciphertext, testRecord.salt, testRecord.iv, masterPassword);
-        setIsVaultUnlocked(true);
-      } catch {
-        setUnlockError("Contraseña Maestra incorrecta.");
-      }
-    } else {
-      // Si no hay registros aún, se considera desbloqueada para la sesión
-      setIsVaultUnlocked(true);
-    }
-  };
-
-  // Guardar o Actualizar Registro Cifrado
+  // Guardar o Actualizar Registro Cifrado (Usa user.uid como clave de cifrado)
   const handleSaveRecord = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !masterPassword || !formTitle) return;
+    if (!user || !formTitle) return;
 
     const payload = JSON.stringify({
       title: formTitle,
@@ -228,7 +207,7 @@ export default function AzVaultApp() {
       notes: formNotes
     });
 
-    const encrypted = await encryptData(payload, masterPassword);
+    const encrypted = await encryptData(payload, user.uid);
 
     if (editingId) {
       const docRef = doc(db, "users", user.uid, "vault", editingId);
@@ -260,9 +239,9 @@ export default function AzVaultApp() {
     }
   };
 
-  // Importar desde DOCX
+  // Importar desde DOCX (Usa user.uid transparente)
   const handleBatchImport = async (entries: ParsedVaultEntry[]) => {
-    if (!user || !masterPassword) return;
+    if (!user) return;
     const vaultRef = collection(db, "users", user.uid, "vault");
 
     for (const entry of entries) {
@@ -274,7 +253,7 @@ export default function AzVaultApp() {
         notes: entry.notes || ""
       });
 
-      const encrypted = await encryptData(payload, masterPassword);
+      const encrypted = await encryptData(payload, user.uid);
       await addDoc(vaultRef, {
         ciphertext: encrypted.ciphertext,
         salt: encrypted.salt,
@@ -398,76 +377,7 @@ export default function AzVaultApp() {
     );
   }
 
-  // 2. VISTA DE DESBLOQUEO DE BÓVEDA (CONTRASEÑA MAESTRA LOCAL)
-  if (!isVaultUnlocked) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-12">
-        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6">
-          <div className="flex justify-between items-center pb-4 border-b border-slate-800">
-            <div className="flex items-center space-x-2">
-              <Shield className="w-6 h-6 text-cyan-400" />
-              <span className="text-sm font-bold text-white">AZ VAULT</span>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="text-xs text-slate-400 hover:text-rose-400 flex items-center space-x-1"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Cerrar Sesión</span>
-            </button>
-          </div>
-
-          <div className="text-center space-y-2">
-            <div className="inline-flex p-3 bg-amber-950/60 border border-amber-800/60 rounded-2xl mb-1">
-              <Lock className="w-8 h-8 text-amber-400" />
-            </div>
-            <h2 className="text-xl font-bold text-white">Desbloquear Bóveda Cifrada</h2>
-            <p className="text-xs text-slate-400">
-              Ingresa tu <strong>Contraseña Maestra</strong>. Esta clave se usa localmente para descifrar tus registros con Web Crypto API (AES-GCM-256) y nunca se envía a Firestore.
-            </p>
-          </div>
-
-          <form onSubmit={handleUnlockVault} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase text-slate-400 mb-1">
-                Contraseña Maestra
-              </label>
-              <input
-                type="password"
-                required
-                value={masterPassword}
-                onChange={(e) => setMasterPassword(e.target.value)}
-                placeholder="Ingresa tu Contraseña Maestra"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-amber-500 transition-colors"
-              />
-            </div>
-
-            {unlockError && (
-              <div className="bg-rose-950/50 border border-rose-800 text-rose-300 text-xs p-3 rounded-lg flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{unlockError}</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              className="w-full bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors shadow-lg shadow-amber-950/50 flex items-center justify-center space-x-2"
-            >
-              <Unlock className="w-4 h-4" />
-              <span>Desbloquear Bóveda</span>
-            </button>
-          </form>
-
-          <div className="bg-slate-950/80 rounded-lg p-3 text-[11px] text-slate-500 space-y-1">
-            <p><strong>Usuario:</strong> {user.email}</p>
-            <p><strong>Bóveda:</strong> Cifrada de extremo a extremo.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // 3. VISTA PRINCIPAL DE LA BÓVEDA DESBLOQUEADA
+  // 2. VISTA PRINCIPAL DIRECTA TRAS AUTENTICACIÓN
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       {/* Header */}
@@ -487,20 +397,13 @@ export default function AzVaultApp() {
           </div>
 
           <div className="flex items-center space-x-3">
-            <button
-              onClick={() => setIsVaultUnlocked(false)}
-              className="bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-1 transition-colors"
-              title="Bloquear la bóveda localmente"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Bloquear Bóveda</span>
-            </button>
+            <span className="text-xs text-slate-400 hidden sm:inline">{user.email}</span>
             <button
               onClick={handleLogout}
               className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 text-xs px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-1 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Salir</span>
+              <span>Cerrar Sesión</span>
             </button>
           </div>
         </div>
