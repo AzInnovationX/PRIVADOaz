@@ -304,10 +304,36 @@ export default function AzVaultApp() {
     setIsFormOpen(true);
   };
 
+  // Temporizador de Auto-Lock tras 5 minutos de inactividad del usuario
+  useEffect(() => {
+    if (!user) return;
+
+    let timeoutId: NodeJS.Timeout;
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        handleLogout();
+      }, 5 * 60 * 1000); // 5 minutos
+    };
+
+    const events = ["mousedown", "mousemove", "keydown", "scroll", "touchstart"];
+    events.forEach((evt) => window.addEventListener(evt, resetTimer));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach((evt) => window.removeEventListener(evt, resetTimer));
+    };
+  }, [user]);
+
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+    // Limpiar el portapapeles tras 30 segundos por seguridad
+    setTimeout(() => {
+      navigator.clipboard.writeText("").catch(() => {});
+      setCopiedId(null);
+    }, 30000);
   };
 
   const togglePasswordVisibility = (id: string) => {
