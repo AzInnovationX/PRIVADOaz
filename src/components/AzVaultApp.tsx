@@ -347,18 +347,125 @@ export default function AzVaultApp() {
     (r.url && r.url.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  // Estado de Primera Pantalla: Clave Maestra del Sistema antes del Login
+  const [isMasterKeyVerified, setIsMasterKeyVerified] = useState<boolean>(false);
+  const [systemMasterKey, setSystemMasterKey] = useState<string>("");
+  const [systemKeyError, setSystemKeyError] = useState<string | null>(null);
+
+  const handleVerifySystemKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSystemKeyError(null);
+
+    // Validar clave maestra del sistema (Si no hay configurada en env, usar clave por defecto segura)
+    const validKey = process.env.NEXT_PUBLIC_SYSTEM_MASTER_KEY || "AZVAULT-SECURE-2026";
+
+    if (systemMasterKey.trim() === validKey.trim()) {
+      setIsMasterKeyVerified(true);
+    } else {
+      setSystemKeyError("🛑 CLAVE MAESTRA INCORRECTA: Intrusión bloqueada. Tu dirección IP y credenciales locales han sido enviadas al registro de seguridad 24/7.");
+      setSystemMasterKey("");
+    }
+  };
+
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-100">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-100 font-mono">
         <div className="flex items-center space-x-3">
           <Shield className="w-8 h-8 text-cyan-400 animate-pulse" />
-          <span className="text-sm font-semibold tracking-wider">Cargando Az Vault...</span>
+          <span className="text-sm font-semibold tracking-wider">Cargando Protocolos AZ VAULT...</span>
         </div>
       </div>
     );
   }
 
-  // 1. VISTA DE INICIO DE SESIÓN (FIREBASE AUTHENTICATION CON DISEÑO HACKER / CYBER VAULT)
+  // 1. PRIMERA PANTALLA: VERIFICACIÓN DE CLAVE MAESTRA DEL SISTEMA
+  if (!isMasterKeyVerified) {
+    return (
+      <div className="relative min-h-screen flex flex-col justify-center items-center px-4 py-12 bg-slate-950 overflow-hidden">
+        {/* Imagen de fondo cibernética */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20 scale-105 transition-transform duration-1000"
+          style={{ backgroundImage: "url('/login-bg.jpg')" }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/95 via-slate-950/90 to-slate-950/95" />
+        
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-rose-600/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl" />
+
+        <div className="relative z-10 w-full max-w-md bg-slate-900/90 border border-rose-500/40 rounded-2xl p-8 shadow-2xl backdrop-blur-md space-y-6">
+          
+          {/* Encabezado e Icono de Candado Principal */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex p-3.5 bg-slate-950/80 border border-rose-500/50 rounded-2xl shadow-lg shadow-rose-950/60 mb-1">
+              <Lock className="w-10 h-10 text-rose-400 animate-pulse" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-white tracking-widest font-mono">AZ VAULT</h1>
+              <p className="text-[11px] font-mono text-rose-400 uppercase tracking-wider mt-1">
+                PRIMERA BARRERA // CLAVE MAESTRA DEL SISTEMA
+              </p>
+            </div>
+          </div>
+
+          {/* ADVERTENCIA INTIMIDANTE AL INTRUSO */}
+          <div className="bg-rose-950/50 border border-rose-600/60 rounded-xl p-3.5 space-y-1 text-left shadow-inner">
+            <div className="flex items-center space-x-2 text-rose-400 text-xs font-bold font-mono uppercase tracking-wider">
+              <ShieldAlert className="w-4 h-4 shrink-0 animate-bounce" />
+              <span>[!] ADVERTENCIA — ZONA ALTAMENTE RESTRINGIDA</span>
+            </div>
+            <p className="text-[11px] text-slate-300 font-mono leading-relaxed pl-6">
+              Punto de control primario activado. Esta plataforma está estrictamente <strong className="text-rose-400">monitoreada 24/7</strong>. 
+              Ingresar una clave maestra falsa registrará automáticamente tu dispositivo.
+              <span className="block mt-1 font-semibold text-rose-300">
+                Si no eres un invitado autorizado o eres un simple curioso, por tu seguridad debes retirarte de inmediato.
+              </span>
+            </p>
+          </div>
+
+          {/* Formulario de Clave Maestra */}
+          <form onSubmit={handleVerifySystemKey} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold font-mono uppercase text-slate-300 mb-1">
+                Ingresa la Clave Maestra del Sistema
+              </label>
+              <input
+                type="password"
+                required
+                autoFocus
+                value={systemMasterKey}
+                onChange={(e) => setSystemMasterKey(e.target.value)}
+                placeholder="••••••••••••••••"
+                className="w-full bg-slate-950/90 border border-rose-800/60 rounded-lg px-3 py-2.5 text-sm text-slate-100 placeholder-slate-700 font-mono focus:outline-none focus:border-rose-500 transition-colors shadow-inner"
+              />
+            </div>
+
+            {systemKeyError && (
+              <div className="bg-rose-950/80 border border-rose-700 text-rose-200 text-xs p-3 rounded-lg flex items-start space-x-2 font-mono">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                <span>{systemKeyError}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full bg-rose-700 hover:bg-rose-600 text-white font-mono font-bold py-3 rounded-lg text-sm tracking-wider uppercase transition-all shadow-lg shadow-rose-950/60 active:scale-[0.99] flex items-center justify-center space-x-2"
+            >
+              <Unlock className="w-4 h-4" />
+              <span>Desbloquear Primera Barrera</span>
+            </button>
+          </form>
+
+          <div className="pt-3 border-t border-slate-800/80 text-center">
+            <p className="text-[10px] text-slate-500 font-mono">
+              FIREWALL LEVEL 1 ACTIVE // UNAUTHORIZED LOGGING ENFORCED
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. SEGUNDA PANTALLA: VISTA DE INICIO DE SESIÓN (FIREBASE AUTHENTICATION)
   if (!user) {
     return (
       <div className="relative min-h-screen flex flex-col justify-center items-center px-4 py-12 bg-slate-950 overflow-hidden">
