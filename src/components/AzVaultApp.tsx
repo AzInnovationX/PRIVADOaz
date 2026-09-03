@@ -183,11 +183,6 @@ export default function AzVaultApp() {
     e.preventDefault();
     setLoginError(null);
 
-    if (!auth || typeof auth.onAuthStateChanged !== "function") {
-      setLoginError("Configuración incompleta: Por favor agrega tu NEXT_PUBLIC_FIREBASE_API_KEY en el archivo .env.local para habilitar la autenticación de Firebase.");
-      return;
-    }
-
     try {
       await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
     } catch (err: unknown) {

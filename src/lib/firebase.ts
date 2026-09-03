@@ -3,8 +3,10 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
+const API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyA-bOyv1E-6jyJtrmvCUnei34dyFzdJsuQ";
+
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
+  apiKey: API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "contraaz.firebaseapp.com",
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "contraaz",
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "contraaz.firebasestorage.app",
@@ -15,10 +17,7 @@ const firebaseConfig = {
 
 const isBrowser = typeof window !== "undefined";
 
-// Inicializar Firebase únicamente si se proporciona una API Key válida en las variables de entorno
-const hasApiKey = Boolean(process.env.NEXT_PUBLIC_FIREBASE_API_KEY && process.env.NEXT_PUBLIC_FIREBASE_API_KEY.trim() !== "");
-
-const app = isBrowser && hasApiKey
+const app = isBrowser
   ? (!getApps().length ? initializeApp(firebaseConfig) : getApp())
   : null;
 
@@ -27,7 +26,7 @@ export const db = (isBrowser && app ? getFirestore(app) : {}) as ReturnType<type
 
 // Analytics opcional y libre de datos sensibles
 export const initAnalytics = async () => {
-  if (isBrowser && app && hasApiKey) {
+  if (isBrowser && app && API_KEY) {
     const supported = await isSupported();
     if (supported) {
       return getAnalytics(app);
