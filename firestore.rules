@@ -1,0 +1,18 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Regla de seguridad para Az Vault:
+    // Los documentos de la bóveda se almacenan dentro de /users/{userId}/vault/{entryId}
+    // Únicamente el usuario autenticado (request.auth.uid == userId) puede leer, crear, actualizar o eliminar sus registros.
+    match /users/{userId}/vault/{entryId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Bloqueo general por defecto para cualquier otra colección
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
